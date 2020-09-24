@@ -1,0 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xml:lang="en" lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="description" content="Demo 3D dice roller"/>
+<title>teal 3d dice roller</title>
+<link rel="stylesheet" type="text/css" href="style.css">
+
+</head>
+
+<body>
+    <div class="container">
+      <img src="Table.jpg" alt="">
+      <!-- The canvas covers anything below it on the screen, so it may be necessary to fade it in like a modal and then dismiss when done -->
+      <div id="canvas" class="svg">
+      </div>
+    </div>
+
+    <script src="../libs/three.min.js"></script>
+    <script src="../libs/cannon.min.js"></script>
+    <script type="text/javascript" src="../teal.js"></script>
+    <script type="text/javascript" src="dice.js"></script>
+    <script type="text/javascript" src="main.js"></script>
+    <script type="text/javascript">
+      dice_initialize(window);
+    </script>
+
+</body>
+</html>

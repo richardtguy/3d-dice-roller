@@ -1,0 +1,10 @@
+#canvas {
+  /* position canvas over the entire document */
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  height: 100%;
+  /* mouse clicks pass straight through to the elements beneath */
+  pointer-events: none;
+}
