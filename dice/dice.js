@@ -142,6 +142,35 @@
     this.standart_d100_dice_face_labels = [' ', '00', '10', '20', '30', '40', '50',
             '60', '70', '80', '90'];
 
+
+    function load_image(uri) {
+      return new Promise((resolve, reject) => {
+        let img = new Image();
+        img.onload = () => resolve(img);
+        // Note server must be set up to allow cross-origin requests
+        img.crossOrigin = '*';
+        img.src = uri;
+      })
+    }
+
+    function load_face_label_images(face_labels) {
+      const images = face_labels.map((label) => {
+        try {
+          new URL(label);
+        } catch (e) {
+          return label;
+        }
+        return load_image(label);
+      })
+      return Promise.all(images)
+    }
+
+    this.add_custom_face_labels = async function(type, name, custom_face_labels) {
+      this.known_types.push(type + '?' + name);
+      // TODO: enable more than one set of custom face labels, indexed by name
+      this.custom_d20_dice_face_labels = await load_face_label_images(custom_face_labels);
+    }
+
     function calc_texture_size(approx) {
         return Math.pow(2, Math.floor(Math.log(approx) / Math.log(2)));
     }
@@ -349,16 +378,26 @@
 
     this.parse_notation = function(notation) {
         var no = notation.split('@');
-        var dr0 = /\s*(\d*)([a-z]+)(\d+)(\s*(\+|\-)\s*(\d+)){0,1}\s*(\+|$)/gi;
+        var dr0 = /\s*(\d*)([d]+)(\d+)(\?){0,1}([a-z]*){0,1}(\s*(\+|\-)\s*(\d+)){0,1}\s*(\+|$)/gi;
+        //var dr0 = /\s*(\d*)([a-z]+)(\d+)(\s*(\+|\-)\s*(\d+)){0,1}\s*(\+|$)/gi;
         var dr1 = /(\b)*(\d+)(\b)*/gi;
         var ret = { set: [], constant: 0, result: [], error: false }, res;
         while (res = dr0.exec(no[0])) {
+            console.log("res", res)
             var command = res[2];
             if (command != 'd') { ret.error = true; continue; }
             var count = parseInt(res[1]);
             if (res[1] == '') count = 1;
             var type = 'd' + res[3];
-            if (this.known_types.indexOf(type) == -1) { ret.error = true; continue; }
+            if (res[4] && res[5]) {
+              // custom dice type
+              type += res[4] + res[5];
+            }
+            if (this.known_types.indexOf(type) == -1) {
+              ret.error = true;
+              console.error(`unrecognised dice type (${type})`)
+              continue;
+            }
             while (count--) ret.set.push(type);
             if (res[5] && res[6]) {
                 if (res[5] == '+') ret.constant += parseInt(res[6]);
@@ -526,7 +565,7 @@
             if (projector > 1.0) pos.y /= projector; else pos.x *= projector;
             var velvec = make_random_vector(vector);
             var velocity = { x: velvec.x * boost, y: velvec.y * boost, z: -10 };
-            var inertia = that.dice_inertia[notation.set[i]];
+            var inertia = that.dice_inertia[notation.set[i].split("?")[0]];
             var angle = {
                 x: -(rnd() * vec.y * 5 + inertia * vec.y),
                 y: rnd() * vec.x * 5 + inertia * vec.x,
@@ -539,13 +578,11 @@
     }
 
     this.dice_box.prototype.create_dice = function(type, pos, velocity, angle, axis) {
-        // need to make this optional!
-        let options = {};
-        options.custom_face_labels = true;
-        var dice = that['create_' + type](options);
+        var base_type = type.split("?")[0];
+        var dice = that['create_' + base_type]({custom_face_labels: type.split("?")[1]});
         dice.castShadow = true;
         dice.dice_type = type;
-        dice.body = new CANNON.RigidBody(that.dice_mass[type],
+        dice.body = new CANNON.RigidBody(that.dice_mass[base_type],
                 dice.geometry.cannon_shape, this.dice_body_material);
         dice.body.position.set(pos.x, pos.y, pos.z);
         dice.body.quaternion.setFromAxisAngle(new CANNON.Vec3(axis.x, axis.y, axis.z), axis.a * Math.PI * 2);
@@ -674,7 +711,6 @@
 
     this.dice_box.prototype.prepare_dices_for_roll = function(vectors) {
         // DEBUG: not clearing the box causes problems when using predetermined result
-        // - is there a way round this?
         //this.clear();
         this.iteration = 0;
         for (var i in vectors) {

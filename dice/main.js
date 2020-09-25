@@ -1,39 +1,23 @@
 "use strict";
 
-function load_image(uri) {
-  return new Promise((resolve, reject) => {
-    let img = new Image();
-    img.onload = () => resolve(img);
-    // Note server must be set up to allow cross-origin requests
-    img.crossOrigin = '*';
-    img.src = uri;
-  })
-}
-
-function load_face_label_images(face_labels) {
-  const images = face_labels.map((label) => {
-    try {
-      new URL(label);
-    } catch (e) {
-      return label;
-    }
-    return load_image(label);
-  })
-  return Promise.all(images)
-}
-
-
 async function dice_initialize(container) {
 
   var canvas = $t.id('canvas');
-  // TODO: extend notation to choose custom dice e.g. 2D6?heroquest, and search
-  // for this name for the custom label set
-  var set = "2d6";
+  /*
+  DEBUG: Combinations of different dice types (standard and custom) cause
+  problems.  E.g. "2d6?hq+d8" uses custom face labels for both d6 and d8,
+  although I didn't add this to create_d8 yet! Something to do with reusing
+  previously created faces?
+  */
+  var set = "d6?red";
 
   $t.dice.use_true_random = false;
   $t.dice.dice_color = '#808080';
   $t.dice.label_color = '#202020';
-  $t.dice.custom_d20_dice_face_labels = await load_face_label_images([
+  $t.dice.add_custom_face_labels(
+    'd6',
+    'hq',
+    [
       ' ',
       '0',
       '',
@@ -59,8 +43,7 @@ async function dice_initialize(container) {
       '20'
     ]);
 
-  // TODO: hide this image loading stuff in a function in dice e.g. "load_custom_face_labels"
-  // - the user shouldn't worry about this.
+  // TODO: add more than one set of custom face labels
 
   var box = new $t.dice.dice_box(canvas, { w: 500, h: 500 });
 
