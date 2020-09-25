@@ -147,9 +147,8 @@
     }
 
     this.create_dice_materials = function(face_labels, size, margin) {
-        // TODO: add option to pass image URIs instead of text face labels
-        function create_text_texture(text, color, back_color) {
-            if (text == undefined) return null;
+        function create_face_texture(label, color, back_color) {
+            if (label == undefined) return null;
             var canvas = document.createElement("canvas");
             var context = canvas.getContext("2d");
             var ts = calc_texture_size(size + size * 2 * margin) * 2;
@@ -157,12 +156,17 @@
             context.font = ts / (1 + 2 * margin) + "pt Arial";
             context.fillStyle = back_color;
             context.fillRect(0, 0, canvas.width, canvas.height);
-            context.textAlign = "center";
-            context.textBaseline = "middle";
-            context.fillStyle = color;
-            context.fillText(text, canvas.width / 2, canvas.height / 2);
-            if (text == '6' || text == '9') {
-                context.fillText('  .', canvas.width / 2, canvas.height / 2);
+            if (typeof(label) == "object") {
+              context.drawImage(label, canvas.width * 0.25, canvas.height * 0.25,
+                canvas.width*0.5, canvas.height*0.5);
+            } else {
+              context.textAlign = "center";
+              context.textBaseline = "middle";
+              context.fillStyle = color;
+              context.fillText(label, canvas.width / 2, canvas.height / 2);
+              if (label == '6' || label == '9') {
+                  context.fillText('  .', canvas.width / 2, canvas.height / 2);
+              }
             }
             var texture = new THREE.Texture(canvas);
             texture.needsUpdate = true;
@@ -170,8 +174,8 @@
         }
         var materials = [];
         for (var i = 0; i < face_labels.length; ++i)
-            materials.push(new THREE.MeshPhongMaterial($t.copyto(this.material_options,
-                        { map: create_text_texture(face_labels[i], this.label_color, this.dice_color) })));
+          materials.push(new THREE.MeshPhongMaterial($t.copyto(this.material_options,
+            { map: create_face_texture(face_labels[i], this.label_color, this.dice_color) })));
         return materials;
     }
 
@@ -273,7 +277,7 @@
     this.material_options = {
         specular: 0x172022,
         color: 0xf0f0f0,
-        shininess: 30,
+        shininess: 10,
         shading: THREE.FlatShading,
     };
     this.label_color = '#aaaaaa';
@@ -299,11 +303,12 @@
         return new THREE.Mesh(this.d4_geometry, this.d4_material);
     }
 
-    this.create_d6 = function() {
+    this.create_d6 = function(options) {
         if (!this.d6_geometry) this.d6_geometry = this.create_d6_geometry(this.scale * 0.9);
-        // TODO: create custom D6 with images instead of text face labels
+        // use custom face labels if available
+        var face_labels = options.custom_face_labels ? this.custom_d20_dice_face_labels : this.standart_d20_dice_face_labels;
         if (!this.dice_material) this.dice_material = new THREE.MeshFaceMaterial(
-                this.create_dice_materials(this.standart_d20_dice_face_labels, this.scale / 2, 1.0));
+                this.create_dice_materials(face_labels, this.scale / 2, 1.0));
         return new THREE.Mesh(this.d6_geometry, this.dice_material);
     }
 
@@ -392,8 +397,9 @@
         this.world = new CANNON.World();
 
         this.renderer = window.WebGLRenderingContext
-            ? new THREE.WebGLRenderer({ antialias: true, alpha: true})
+            ? new THREE.WebGLRenderer({ antialias: true, alpha: true })
             : new THREE.CanvasRenderer({ antialias: true, alpha: true });
+
         container.appendChild(this.renderer.domElement);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -469,7 +475,7 @@
 
         var mw = Math.max(this.w, this.h);
         if (this.light) this.scene.remove(this.light);
-        this.light = new THREE.SpotLight(that.spot_light_color, 2.0);
+        this.light = new THREE.SpotLight(that.spot_light_color, 1.5);
         this.light.position.set(-mw / 2, mw / 2, mw * 2);
         this.light.target.position.set(0, 0, 0);
         this.light.distance = mw * 5;
@@ -533,9 +539,10 @@
     }
 
     this.dice_box.prototype.create_dice = function(type, pos, velocity, angle, axis) {
-        // TODO: add option to call a create_custom_dX function instead of the default create_dX
-        // and pass list of face image URIs
-        var dice = that['create_' + type]();
+        // need to make this optional!
+        let options = {};
+        options.custom_face_labels = true;
+        var dice = that['create_' + type](options);
         dice.castShadow = true;
         dice.dice_type = type;
         dice.body = new CANNON.RigidBody(that.dice_mass[type],
@@ -666,6 +673,8 @@
     }
 
     this.dice_box.prototype.prepare_dices_for_roll = function(vectors) {
+        // DEBUG: not clearing the box causes problems when using predetermined result
+        // - is there a way round this?
         //this.clear();
         this.iteration = 0;
         for (var i in vectors) {
